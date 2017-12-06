@@ -41,7 +41,7 @@ cline normal(cline l, point p)
   cline rtn;
   rtn.a = -l.b;
   rtn.b = l.a;
-  rtn.c = (l.b * p.x) + (l.a * p.y);
+  rtn.c = (l.b * p.x) - (l.a * p.y);
   return rtn;
 }
 
@@ -84,8 +84,8 @@ point vectToPoint(vect v)
 {
   point rtn = 
   {
-    v.i,
-    v.j
+    .x = v.i,
+    .y = v.j
   };
   return rtn ;
 }

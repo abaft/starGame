@@ -48,7 +48,7 @@ star* star_INIT(int n)
     {
       rtn[i].x = x;
       rtn[i].y = y;
-      rtn[i].life = rand()%1000 + 100;
+      rtn[i].life = rand()%1000 + 10;
       ys[i] = y;
       xs[i] = x;
       i++;
