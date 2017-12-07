@@ -9,30 +9,14 @@
 #include <string.h>
 #include "starHandler.h"
 #include "geom.h"
+#include "SDL_FontCache/SDL_FontCache.h"
+//LEAVE THE WINDOW SIZE ALONE
+#define WINDOW_WIDTH (2000)
+#define WINDOW_HEIGHT (2000)
 
-#define WINDOW_WIDTH (1000)
-#define WINDOW_HEIGHT (1000)
+#define SCALE 0.5 //is 2000x2000
 #define NUM_STARS 1000
 #define NUM_PLANETS 100
-
-void putFont (int x, int y, SDL_Renderer** render, 
-    TTF_Font* font, char* string, SDL_Color colour)
-{
-  SDL_Surface* surfaceMessage = 
-    TTF_RenderText_Solid(font, string, colour);
-  SDL_Texture* Message = SDL_CreateTextureFromSurface(*render, surfaceMessage);
-  SDL_Rect dest;
-  dest.x = x;
-  dest.y = y;
-  dest.w = strlen(string) * 3 * (WINDOW_WIDTH/100);
-  dest.h =  3 * (WINDOW_WIDTH/100);
-  SDL_RenderCopy(*render, Message, NULL, &dest);
-  SDL_DestroyTexture(Message);
-  //free(dest);
-  SDL_FreeSurface(surfaceMessage);
-  return;
-}
-
 
 SDL_Rect* positionStars(star* stars, int n)
 {
@@ -58,10 +42,10 @@ point starToPoint(star s)
 }
 
 int removePlanetCollision( star** ptrPlanets, 
-   int n, vline vecline, 
-   star** deadPlanets, 
-   int* deadPlanetsCtr,
-   int* winState)
+    int n, vline vecline, 
+    star** deadPlanets, 
+    int* deadPlanetsCtr,
+    int* winState)
 {
   cline carline = vlineToCline(vecline);
   cline norm = normal(carline, vectToPoint(vecline.start));
@@ -104,12 +88,20 @@ star* findPlanetUnder (int x, int y, point* loc, star* planets, int n)
 
 char string[100];
 
-int main(void)
+int main(int argc, char** argv)
 {
+  if (argc != 2)
+    exit (1);
+  if (atoi(argv[1]) < 1)
+    exit (1);
+  int numStars = atoi (argv[1]);
   srand(time(NULL));
-  star* stars = star_INIT(NUM_STARS);
-  star* planets = star_PINIT(NUM_PLANETS, stars, NUM_STARS);
+  star* stars = star_INIT(numStars);
+  star* planets = star_PINIT(NUM_PLANETS, stars, numStars);
   TTF_Init();
+
+  FC_Font* font = FC_CreateFont();
+  FC_Font* font2 = FC_CreateFont();
 
   // attempt to initialize graphics and timer system
   if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER) != 0)
@@ -121,7 +113,7 @@ int main(void)
   SDL_Window* win = SDL_CreateWindow("Star Game",
       SDL_WINDOWPOS_CENTERED,
       SDL_WINDOWPOS_CENTERED,
-      WINDOW_WIDTH, WINDOW_HEIGHT,0);
+      WINDOW_WIDTH * SCALE, WINDOW_HEIGHT * SCALE,0);
   if (!win)
   {
     printf("error creating window: %s\n", SDL_GetError());
@@ -138,17 +130,14 @@ int main(void)
     SDL_DestroyWindow(win);
     SDL_Quit();
     return 1;
-  }
+  }  
 
-  TTF_Font* Sans = TTF_OpenFont("Sans.ttf", 24);
-  SDL_Color Pink = {255, 51, 255};
-  if (!Sans)
-  {
-    printf("Font not loaded: %s\n", SDL_GetError());
-    SDL_DestroyWindow(win);
-    SDL_Quit();
-    return 1;
-  }
+  SDL_RenderSetScale(rend, (float) SCALE, (float) SCALE);
+  FC_LoadFont(font2, rend, "Sans.ttf", 100, 
+      FC_MakeColor(255,225,255,255), TTF_STYLE_BOLD);
+
+  FC_LoadFont(font, rend, "Sans.ttf", 72, 
+      FC_MakeColor(255,51,255,255), TTF_STYLE_NORMAL);
 
   // load the image into memory using SDL_image library function
   SDL_Surface* surface = IMG_Load("hello.png");
@@ -173,7 +162,7 @@ int main(void)
     SDL_Quit();
     return 1;
   }
-  
+
   surface = IMG_Load("Planet.png");
   if (!surface)
   {
@@ -196,7 +185,7 @@ int main(void)
     SDL_Quit();
     return 1;
   }
-  
+
   surface = IMG_Load("deadPlanet.png");
   if (!surface)
   {
@@ -219,7 +208,7 @@ int main(void)
     SDL_Quit();
     return 1;
   }
-  
+
   surface = IMG_Load("circle.png");
   if (!surface)
   {
@@ -243,7 +232,7 @@ int main(void)
     return 1;
   }
 
-  SDL_Rect* dest = positionStars(stars, NUM_STARS);
+  SDL_Rect* dest = positionStars(stars, numStars);
   SDL_Rect starSelectorDest;
   starSelectorDest.x = -100;
   starSelectorDest.y = -100; 
@@ -254,7 +243,6 @@ int main(void)
   int close_requested = 0;
   int selected = 0;
   // animation loop
-  int numStars = NUM_STARS;
   int numPlanets = NUM_PLANETS;
   int numDPlanets = 0;
   star* deadPlanets = malloc(sizeof(star) * numPlanets);
@@ -274,14 +262,14 @@ int main(void)
       }
       if (event.type == SDL_MOUSEBUTTONDOWN
           //&& event.button == SDL_BUTTON_LEFT
-          )
+         )
       {
         point loc;
         star* planet;
         if((planet = findPlanetUnder(
-           (event.motion.x/((float) WINDOW_WIDTH)) * 100,
-           (event.motion.y/((float) WINDOW_WIDTH)) * 100,
-           &loc, planets, numPlanets)) != NULL)
+                (event.motion.x/((float) WINDOW_WIDTH * SCALE)) * 100,
+                (event.motion.y/((float) WINDOW_WIDTH * SCALE)) * 100,
+                &loc, planets, numPlanets)) != NULL)
         {
           starSelectorDest.x = (loc.x-0.5) * (WINDOW_WIDTH/100);
           starSelectorDest.y = (loc.y-0.5) * (WINDOW_WIDTH/100);
@@ -303,13 +291,12 @@ int main(void)
     for (int i = 0; i < numDPlanets; ++i)
       SDL_RenderCopy(rend, dplantex, NULL, &destDPlanets[i]);
     SDL_RenderCopy(rend, circletex, NULL, &starSelectorDest);
-    
+
     SDL_RenderPresent(rend);
     SDL_Delay(1000/60);
   }
   int winstate = 1;
   clock_t start = clock();
-
   while (!close_requested)
   {
     // process events
@@ -333,7 +320,7 @@ int main(void)
       SDL_RenderCopy(rend, plantex, NULL, &destPlanets[i]);
     for (int i = 0; i < numDPlanets; ++i)
       SDL_RenderCopy(rend, dplantex, NULL, &destDPlanets[i]);
-    if (winstate)
+    if (winstate == 1)
       SDL_RenderCopy(rend, circletex, NULL, &starSelectorDest);
 
     free(destPlanets);
@@ -344,7 +331,7 @@ int main(void)
     int tmp = numStars;
     numStars = star_cycleLife(&stars, numStars, &deadStars);
     int deadStarCount = tmp - numStars;
-    
+
     SDL_SetRenderDrawColor(rend , 255, 255, 255, SDL_ALPHA_OPAQUE);
     for (int i = 0; i < deadStarCount; ++i)
     {
@@ -354,12 +341,12 @@ int main(void)
         deadStars[i].y
       };
 
-      
+
       vline line = polarVline(loc, fmod(rand(), 2 * PI));
       numPlanets = removePlanetCollision(&planets, 
           numPlanets, line, &deadPlanets, &numDPlanets, &winstate);
       loc = vlineMove(line, 2000);
-      
+
       SDL_RenderDrawLine(rend, 
           loc.x * WINDOW_WIDTH/100,
           loc.y * WINDOW_WIDTH/100,
@@ -374,25 +361,38 @@ int main(void)
     destDPlanets = positionStars(deadPlanets, numDPlanets);
     free(deadStars);
     //TEXT RENDERING
-    if (!winstate)
-      putFont (0, 0, &rend, 
-        Sans, string, Pink);
-    else
-    {
       clock_t diff = clock();
       diff -= start;
       long int time = (long int)( (diff * 1000)/CLOCKS_PER_SEC);
-      sprintf(string, "%li mills", (long int) (clock() - start)/100);
-    }
-    if (numStars == 0)
-      winstate = 0;
+
+      if (winstate == 0 || winstate == -1)
+      {
+        sprintf(string, "%li Million Years", time);
+        winstate += 3;
+      }
+      
+    FC_Draw(font, rend, 0, 0, "%li Million Years", time);    
+
+      if (winstate == 3)
+        FC_DrawAlign(font2, rend,
+           WINDOW_WIDTH/2, WINDOW_WIDTH/2, FC_ALIGN_CENTER,
+           "Lost in %s", string);
+      else if (numStars == 0)
+      { 
+        FC_DrawAlign(font2, rend,
+           WINDOW_WIDTH/2, WINDOW_WIDTH/2, FC_ALIGN_CENTER,
+           "Won, Planet Survived...\nHowever all else is dead" );
+        winstate = -1;
+      }
+    
 
     SDL_RenderPresent(rend);
     // wait 1/60th of a second
-    SDL_Delay(1000/60);
+    SDL_Delay((1000/60));
   }
 
   // clean up resources before exiting
+  FC_FreeFont(font);
   SDL_DestroyTexture(startex);
   SDL_DestroyTexture(plantex);
   SDL_DestroyRenderer(rend);
